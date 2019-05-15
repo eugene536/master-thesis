@@ -257,8 +257,51 @@ function array_map(
 Так же поступаем и с возвращаемым аргументом лямбда-функции.
 
 \subsection{Кодогенерация}
-В \verb|PHP| один из magic методов в классе является \verb|__invoke| - если класс имеет этот метод, то \verb|PHP| нам гарантирует, что при попытке вызвать экземпляр данного класса, передав ему аргументы он вызовет данный метод.
+В \verb|PHP| один из магических методов в классе является \verb|__invoke|, если класс имеет этот метод, то \verb|PHP| гарантирует, что при попытке вызвать экземпляр данного класса, передав ему аргументы он вызовет данный метод.
+Лямбда-функции преобразовываются в соответствующей класс и глобальный метод \verb|__invoke|, который принимает в качестве первого аргумента экземпляр самой лямбда-функции.
+Все захваченные переменные становятся полями данного класса.
 
+Рассмотрим пример генерации функции, которая складывает передаваемое ей число и захваченную глобальную переменную:
+\begin{lstlisting}[label={lst:sum_x_captured},caption={Пример функции добавляющей к аргументу захваченное значение}]
+$y = 8;
+
+$add_y = function ($x) use ($y) {
+  return $x + $y;
+};
+
+$add_y(228);
+\end{lstlisting}
+
+Для лямбда-функции, приведенной в листинге \ref{lst:sum_x_captured} будет сгенерирован следующий класс:
+\begin{lstlisting}
+struct lambda1 final : refcountable_php_classes<lambda1> {
+  int y;
+};
+\end{lstlisting}
+
+Также будут сгенерированы глобальные методы для конструирования данной лямбда-функции и вызова соответствующего \verb|__invoke| метода:
+\begin{lstlisting}
+class_instance<lambda1> lambda1_construct(int y) {
+  class_instance<lambda1> lambda1_this;
+  lambda1_this.alloc();
+
+  lambda1_this->y = y;
+  return lambda1_this;
+}
+
+int lambda1_invoke_not_instance(class_instance<lambda1> const &lambda1_this, int x) {
+  return x + lambda1_this->$y;
+}
+\end{lstlisting}
+
+Код из листинга \ref{lst:sum_x_captured} будет преобразован, с использованием полученных классов и функций, в следующий:
+\begin{lstlisting}
+int y = 8;
+class_instance<lambda1> id = lambda1_construct(y);
+lambda1_invoke_not_instance(id, 228);
+\end{lstlisting}
+
+Данный подход генерации лямбда-функций удобен тем, что удачно вписывается в текущую архитектуру кодогенерации \verb|KPHP|.
 
 \section{Поддержка интерфейсов}
 \subsection{Разбор синтаксиса}
