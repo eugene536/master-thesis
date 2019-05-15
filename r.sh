@@ -10,5 +10,5 @@ else
     xelatex -interaction=nonstopmode master-thesis
     xelatex -interaction=nonstopmode master-thesis
 
-    rm -f master-thesis.{aux,log,bbl,bcf,blg,run.xml,toc,tct,out}
+    # rm -f master-thesis.{aux,log,bbl,bcf,blg,run.xml,toc,tct,out}
 fi
