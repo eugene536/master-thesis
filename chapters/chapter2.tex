@@ -105,7 +105,6 @@
 Этой задачей занимается лексер при помощи утилиты \verb|gperf| \cite[с.~461]{cpp_gems_gperf}, не будем вдаваться подробности его работы, а лучше рассмотрим на примере, что у нас получится после прохождения небольшого кода через лексер.
 В листинге \ref{lst:pass_to_lexer} приведен пример и в комментариях указаны какие токены получаются на выходе лексера.
 Осталось только разобраться, как из этого набора токенов построить абстрактное синтаксическое дерево.
-
 \begin{lstlisting}[caption={Результат работы лексера},label={lst:pass_to_lexer}]
 function ($x)     # tok_function tok_oppar tok_var  tok_clpar
   use ($y)        # tok_use      tok_oppar tok_var  tok_clpar
@@ -256,7 +255,6 @@ apply_lambda1(lambda1_construct(), 10, 20);
 Нам осталось только добавить тип для переменной задающей начальное значение - \verb|$initial|, так как она может быть какой угодно то ей зададим тип \verb|Any|.
 А возвращаемый тип всей функции будет такой же, какой имеет параметр \verb|$carry| нашей функции, то есть \verb|lca<^3, ^2()>|.
 Полный пример для указания типа функции \verb|array_reduce| представлен в листинге \ref{lst:typed_array_reduce}.
-
 \begin{lstlisting}[caption={Пример типизации функции array\_reduce},label={lst:typed_array_reduce}]
 function array_reduce(
   $a ::: array,
@@ -265,24 +263,20 @@ function array_reduce(
 \end{lstlisting}
 
 Далее в качестве примера приведем типизации для нескольких встроенных функций \verb|array_filter| - листинг \ref{lst:typed_array_filter}, \verb|array_map| - листинг \ref{lst:typed_array_map} и \verb|usort| представлен в листинге \ref{lst:typed_usort}.
-
 \begin{lstlisting}[caption={Пример типизации функции array\_filter},label={lst:typed_array_filter}]
 function array_filter(
   $a ::: array,
   callback ($x ::: ^1[]) ::: bool = TODO) ::: ^1;
 \end{lstlisting}
-
 \begin{lstlisting}[caption={Пример типизации функции array\_map},label={lst:typed_array_map}]
 function array_map(
   callback ($x ::: ^2[]) ::: Any,
   $a ::: array) ::: array <^1()>;
 \end{lstlisting}
-
 \begin{lstlisting}[caption={Пример типизации функции usort},label={lst:typed_usort}]
 function usort(
   &$a ::: array,
   callback($x ::: ^1[], $y ::: ^1[]) ::: int) ::: void;
-
 \end{lstlisting}
 
 Для вывода типов, для начала нам нужно разобрать придуманный нами синтаксис и представить его в удобной форме.
@@ -381,13 +375,111 @@ lambda1_invoke_not_instance(id, 228);
 
 \section{Поддержка интерфейсов}
 Для того чтобы иметь возможность сохранять разные лямбда-функции в одну и туже переменную, но которые имеют схожую сигнатуру, необходимо разработать новую сущность, позволяющую обобщать классы.
-Сейчас у нас нет возможности в языке сохранять различные классы в одну и туже переменную, однако интерфейсы смогут разрешить эту проблему.
+Сейчас нет возможности в языке сохранять различные классы в одну и туже переменную, однако интерфейсы смогут разрешить эту проблему.
 После чего можно будет придумать специальный синтаксис для аннотации таких переменных, что позволит сохранять в поля класса разные экземпляры лямбда-функций.
 Также появится возможность сохранять в одну и туже переменную разные анонимные функции.
 
 \subsection{Разбор синтаксиса}
-Расскажу немного про то как устроены интерфейсы в PHP, какой у них синтаксис и с чем придется столкнуться.
-Про ковариантность и контровариантность надо не забыть.
+Рассмотрим как выглядят интерфейсы в языке PHP.
+Они начинаются с ключевого слова \verb|interface|, каждый интерфейс имеет уникальное имя.
+Внутри мы можем определять константы, статические функции и методы, которые должны быть обязательно реализованы наследниками.
+Рассмотрим пример интерфейса \verb|CallableInterface|:
+\begin{lstlisting}[caption={Пример интерфейса Callable},label={lst:callable-interface-example}]
+interface CallableInterface {
+  public function invoke($x);
+}
+\end{lstlisting}
+
+Чтобы реализовать интерфейс, необходимо создать класс, указать, что он \verb|implements CallableInterface| и реализовать необходимые функции.
+Рассмотрим пример для интерфейса приведенного в листинге \ref{lst:callable-interface-example}:
+\begin{lstlisting}
+class PlusFive implements CallableInterface {
+  public function invoke($x) {
+    return $x + 5;
+  } 
+}
+\end{lstlisting}
+
+Для того, чтобы указать, что переменная реализует данный интерфейс - нужно написать \verb|PHPDoc| \cite{phpdoc} над переменной \verb|@var CallableInterface|.
+Для принимаемых параметров функции по прежнему работает подсказка типа в параметрах функции.
+Также необходимо добавить возможно наследования интерфейсов.
+наследование реализуется путем копирования всех методов из родительского интерфейса в дочерней синтаксис для наследования интерфейсов:
+\begin{lstlisting}
+interface FooInterface {
+  public function foo($x);
+}
+
+interface BarInterface extends FooInterface {
+  public function bar($x, $y);
+}
+
+class FooBarClass implements BarInterface {
+  public function foo($x) { return $x; }
+  public function bar($x, $y) { return $x + $y; }
+}
+\end{lstlisting}
+
+Также при объявлении интерфейсов у нас бывают аргументы по умолчанию, это нужно учесть.
+Причем у наследника у нас может быть больше аргументов, чем у родителя, если они имеют значения по умолчанию.
+Также все аргументы, которые у интерфейса имеют значения по умолчанию должны иметь одинаковые значения в наследниках.
+
+Также нам понадобится механизм для проверки, является ли данное выражение, представляющее базовый класс, классом наследником.
+Это будет осуществляться с помощью оператора \verb|instanceof|.
+Введем также дополнительную функцию \verb|instance_cast|, для понижающего приведения.
+Однако так как в \verb|PHP| используется динамическая типизация, становится неудобным сначала проверять на \verb|instanceof|, а после производить \verb|instance_cast|.
+Давайте заведем состояние для каждой переменной участвовавшей в условии на \verb|instanceof|.
+В листенге \ref{lst:smart_instanceof} показано как должно происходить автоматическое понимание какого типа на самом деле является переменная.
+\begin{lstlisting}[caption={Пример использования умного оператора instanceof},label={lst:smart_instanceof}]
+interface I { public function print_i(); }
+
+interface IA extends I { public function print_ia(); }
+interface IB extends I { public function print_ib(); }
+
+class A implements IA {
+    public function print_i() { var_dump("print_i::A"); }
+    public function print_ia() { var_dump("print_ia::A"); }
+
+    public function _a() { var_dump("_a"); }
+}
+
+class B implements IA {
+    public function print_i() { var_dump("print_i::B"); }
+    public function print_ia() { var_dump("print_ia::B"); }
+
+    public function _b() { var_dump("_b"); }
+}
+
+class C implements IB {
+    public function print_i() { var_dump("print_i::C"); }
+    public function print_ib() { var_dump("print_ib::C"); }
+
+    public function _c() {
+        var_dump("_c");
+    }
+}
+
+function call_method(I $x) {
+  $x->print_i();
+  if ($x instanceof IA) {
+      $x->print_ia();
+      if ($x instanceof A) {
+          $x->_a();
+          $x->_a();
+      } else {                # $x is B
+          $x->_b();
+      }
+  } else {                    # $x is IB
+      $x->print_ib();
+      if ($x instanceof C) {
+          $x->_c();
+      }
+  }
+}
+\end{lstlisting}
+
+В листинге \ref{lst:smart_instanceof} отображена работа с интерфейсами, которые были реализованы в рамках написания данной работы.
+Данный код корректный и KPHP понимает в какой из областей видимости возможны варианты для типа переменной.
+Это было реализовано при помощи поддержки состояний для каждой переменной и анализа CFG.
 
 \subsection{Генерация методов}
 Здесь будет показано как создаются методы классов.
