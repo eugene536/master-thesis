@@ -552,7 +552,7 @@
 \newcommand{\thechair}{компьютерных технологий}
 \newcommand{\chair}[1]{\renewcommand{\thechair}{#1}}
 
-\newcommand{\thechairhead}{Парфенов В.Г.}
+\newcommand{\thechairhead}{Парфенов В. Г.}
 \newcommand{\thechairheaddegree}{проф., д.т.н.}
 \newcommand{\chairhead}[2]{\renewcommand{\thechairhead}{#1}
                            \renewcommand{\thechairheaddegree}{#2}}
